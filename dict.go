@@ -7,6 +7,8 @@ import (
 	"net/http"
 	"net/url"
 
+	"github.com/boltdb/bolt"
+	"github.com/fatih/color"
 	"github.com/mkideal/cli"
 )
 
@@ -54,6 +56,42 @@ func main() {
 		if Derr != nil {
 			log.Fatal(err.Error())
 		}
+
+		//if the word is checked,then put it into the db
+		db, dberr := bolt.Open("mydict.db", 0600, nil)
+		defer db.Close()
+		if dberr != nil {
+			color.Red("db create failed")
+		}
+		//create bucket
+		bterr := db.Update(func(tx *bolt.Tx) error {
+			_, err = tx.CreateBucketIfNotExists([]byte("yddict"))
+			if err != nil {
+				return fmt.Errorf("Cannot Create Bucket:%s", err)
+			} else {
+				return nil
+			}
+		})
+		if bterr != nil {
+			color.Red("Create/Access bucket failed")
+		}
+
+		//put word into dict
+		db.Update(func(tx *bolt.Tx) error {
+			bt := tx.Bucket([]byte("yddict"))
+			value := bt.Get([]byte(urlword))
+			if value == nil {
+				err = bt.Put([]byte(urlword), []byte("checked"))
+				color.Green("remembered!")
+				return err
+			} else {
+				color.Blue("You have checked it")
+				//	err := bt.Put([]byte(urlword), []byte("1"))
+				return nil
+			}
+
+		})
+
 		if argv.Info == "more" {
 			ctx.JSONln(dict.Basic)
 		} else {
